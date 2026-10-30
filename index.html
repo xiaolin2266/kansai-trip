@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>胖狗關西團｜2026 關西行程</title>
+  
+  <!-- 字型：jf-openhuninn (粉圓體) 作為 Huninn 的開源實作 -->
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/justfont/open-huninn-font/font.css');
+  </style>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* 顏色與基礎設定 */
+    :root {
+      --bg-washi: #FFFCF6;
+      --border-ink: #3E3A39;
+      --color-pink: #F2A497;
+      --color-yellow: #F6D27A;
+      --color-blue: #A8D3E6;
+      --color-green: #B9DAA5;
+    }
+
+    body {
+      font-family: 'jf-openhuninn', sans-serif;
+      background-color: var(--bg-washi);
+      color: var(--border-ink);
+      overflow-x: hidden;
+    }
+
+    /* 繪本風：粗線框、平塗、大圓角、實色陰影 */
+    .comic-box {
+      background-color: #ffffff;
+      border: 3px solid var(--border-ink);
+      border-radius: 20px;
+      box-shadow: 4px 4px 0px var(--border-ink);
+      transition: transform 0.2s ease;
+    }
+    
+    .comic-btn {
+      border: 3px solid var(--border-ink);
+      border-radius: 20px;
+      box-shadow: 4px 4px 0px var(--border-ink);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .comic-btn:active, .comic-btn.active-tab {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px var(--border-ink);
+    }
+    
+    .comic-btn.active-tab {
+      background-color: var(--border-ink);
+      color: var(--bg-washi);
+    }
+
+    .comic-tag {
+      border: 2px solid var(--border-ink);
+      border-radius: 12px;
+      font-weight: 700;
+      padding: 2px 10px;
+      font-size: 0.85rem;
+      display: inline-block;
+    }
+
+    /* 動畫設定 (支援減少動態效果) */
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    
+    @keyframes bounceIn {
+      0% { transform: scale(0.95); opacity: 0; }
+      50% { transform: scale(1.02); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .animate-bounceIn {
+      animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .animate-float, .animate-bounceIn {
+        animation: none;
+        transform: none;
+        opacity: 1;
+      }
+      .comic-box, .comic-btn {
+        transition: none;
+      }
+    }
+
+    /* 時間軸設計 */
+    .timeline-container {
+      position: relative;
+      padding-left: 1.5rem;
+    }
+    .timeline-container::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 0;
+      width: 4px;
+      background-color: var(--border-ink);
+      border-radius: 2px;
+    }
+    .timeline-dot {
+      position: absolute;
+      left: -21px;
+      top: 6px;
+      width: 16px;
+      height: 16px;
+      border: 3px solid var(--border-ink);
+      background-color: var(--color-yellow);
+      border-radius: 50%;
+      z-index: 10;
+    }
+
+    /* 自訂捲軸與核取方塊 */
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    #day-tabs {
+      cursor: grab;
+    }
+    #day-tabs:active {
+      cursor: grabbing;
+    }
+
+    .todo-checkbox {
+      appearance: none;
+      min-width: 28px;
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border-ink);
+      border-radius: 8px;
+      background-color: white;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .todo-checkbox:checked {
+      background-color: var(--color-green);
+    }
+    .todo-checkbox:checked::after {
+      content: '✔';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--border-ink);
+      font-weight: 900;
+      font-size: 16px;
+    }
+
+    /* 路線預覽：參考景點導覽圖的米色底圖、紅色星號與固定標籤 */
+    .leaflet-container {
+      background: #e8d9c3 !important;
+      outline: none;
+      overflow: hidden;
+      font-family: 'jf-openhuninn', sans-serif;
+    }
+    #map-core { width: 100%; height: 100%; min-height: 260px; background: #e8d9c3; isolation: isolate; }
+    #map-core img { max-width: none !important; max-height: none !important; }
+    #map-core .leaflet-tile { filter: none !important; }
+    #map-core .leaflet-control-attribution { font-size: 10px; color: #62584d; background: rgba(255,252,246,.88); }
+    #map-core .leaflet-control-zoom a { color: #3E3A39; background: rgba(255,252,246,.95); }
+    #route-top-right .leaflet-control-layers { font-family: 'jf-openhuninn', sans-serif; font-size: 12px; background: rgba(255,252,246,.95); color: #3E3A39; border: 1px solid #b8a995; border-radius: 10px; box-shadow: 0 1px 4px rgba(58,45,34,.18); }
+    .custom-map-marker { background: transparent; border: 0; }
+    .route-star {
+      display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%;
+      background: #f34d4e; border: 2px solid #3E3A39; color: #fff;
+      font-family: 'jf-openhuninn', sans-serif; font-size: 12px; font-weight: 900; line-height: 1;
+      box-shadow: 2px 2px 0 rgba(62, 58, 57, .85);
+      transition: transform .25s ease, background-color .25s ease, box-shadow .25s ease;
+    }
+    .map-place-label {
+      background: #fff !important;
+      border: 2px solid #3E3A39 !important;
+      border-radius: 999px !important;
+      box-shadow: 2px 2px 0 rgba(62, 58, 57, .85) !important;
+      color: #3E3A39 !important;
+      font-family: 'jf-openhuninn', sans-serif !important;
+      font-size: 12px !important;
+      font-weight: 900 !important;
+      line-height: 1.2 !important;
+      padding: 2px 9px !important;
+      white-space: nowrap !important;
+      pointer-events: auto;
+    }
+    .map-place-label::before { display: none !important; }
+    .route-path { stroke-linecap: round; }
+    .route-star-active { transform: scale(1.35); box-shadow: 0 0 0 5px rgba(243, 77, 78, .35), 2px 2px 0 rgba(62, 58, 57, .85); }
+    .route-star-done { background: #4a9d6e; }
+    #map-core .leaflet-tooltip-pane { z-index: 590 !important; }  /* 編號圓點永遠在名稱標籤上層，標籤不會蓋住景點 */
+    .map-place-label.map-place-label-hidden { opacity: 0 !important; pointer-events: none !important; }
+    .map-place-label.map-place-label-active { background: #f34d4e !important; color: #fff !important; font-size: 15px !important; z-index: 1000; }
+    .map-place-label.map-place-label-active.leaflet-tooltip-right { margin-left: 8px !important; }
+    .map-place-label.map-place-label-active.leaflet-tooltip-left { margin-left: -8px !important; }
+    .map-place-label.map-place-label-done { background: #e6f4ec !important; border-color: #2f7a52 !important; color: #2f7a52 !important; }
+    @media (max-width: 640px) { .map-place-label.map-place-label-active { font-size: 13px !important; } }
+    .route-card-num { position: absolute; top: 4px; left: 4px; z-index: 5; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #f34d4e; border: 2px solid #3E3A39; color: #fff; font-size: 11px; font-weight: 900; line-height: 1; box-shadow: 1px 1px 0 rgba(62, 58, 57, .85); }
+    .route-toolbar { display: flex; align-items: center; gap: 4px; padding: 4px; background: #fff; border: 2px solid #3E3A39; border-radius: 999px; box-shadow: 2px 2px 0 rgba(62, 58, 57, .9); }
+    .rt-btn { min-width: 36px; height: 36px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: #3E3A39; font-size: 16px; font-weight: 900; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .rt-btn:hover { background: #f2ede3; }
+    .rt-btn:focus-visible { outline: 2px solid #1565d8; outline-offset: 1px; }
+    .rt-primary { background: #f34d4e; color: #fff; }
+    .rt-primary:hover { background: #e03c3d; }
+    .rt-speed { padding: 0 10px; font-size: 13px; }
+    .rt-btn.is-on { background: #A8D3E6; }
+    .rt-sep { width: 1px; height: 20px; background: #d8cdbd; }
+    .route-gmaps-btn { display: flex; align-items: center; gap: 4px; padding: 6px 11px; background: #F6D27A; border: 2px solid #3E3A39; border-radius: 999px; box-shadow: 2px 2px 0 rgba(62, 58, 57, .9); color: #3E3A39; font-size: 12px; font-weight: 900; cursor: pointer; }
+    .route-gmaps-btn:hover { background: #f1c75f; }
+    .gm-short { display: inline; }
+    @media (max-width: 400px) { .gm-short { display: none; } }   /* 很窄的手機只留圖示 */
+    .route-now-card { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px 12px; background: #fff; border: 2px solid #3E3A39; border-radius: 16px; box-shadow: 3px 3px 0 rgba(62, 58, 57, .9); overflow: hidden; }
+    .route-now-num { flex: none; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #f34d4e; border: 2px solid #3E3A39; color: #fff; font-size: 13px; font-weight: 900; }
+    .route-now-name { font-size: 15px; font-weight: 900; color: #3E3A39; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .route-now-sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 11px; font-weight: 800; color: #7a6f63; }
+    .route-now-tag { padding: 0 7px; border: 1px solid rgba(62, 58, 57, .5); border-radius: 999px; color: #3E3A39; }
+    .route-now-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: #eee3d3; }
+    #now-bar { width: 0; height: 100%; background: #f34d4e; border-radius: 0 3px 3px 0; }
+    .route-toast { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); z-index: 1300; padding: 6px 14px; background: rgba(62, 58, 57, .92); color: #fff; border-radius: 999px; font-size: 13px; font-weight: 800; pointer-events: none; white-space: nowrap; }
+    .route-toast[hidden] { display: none; }
+    .route-card-active { outline: 3px solid #f34d4e; outline-offset: 1px; box-shadow: 0 0 0 5px rgba(243, 77, 78, .25); }
+    .route-walker { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1; background: #fff; border: 2px solid #3E3A39; border-radius: 50%; box-shadow: 0 2px 4px rgba(58, 45, 34, .4); }
+    .map-tile-status {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 1200; max-width: min(88%, 360px); padding: 12px 16px;
+      border: 1px solid #b8a995; border-radius: 12px; background: rgba(255,252,246,.96);
+      color: #3E3A39; box-shadow: 0 2px 12px rgba(50,40,30,.12);
+      font-size: 13px; line-height: 1.5; text-align: center; pointer-events: none;
+    }
+    .map-tile-status[hidden] { display: none !important; }
+    .map-legend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,252,246,.94);
+      border: 1px solid #b8a995;
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: #5d5247;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 1px 3px rgba(58,45,34,.12);
+    }
+    .map-legend-star { color: #f34d4e; font-size: 13px; }
+    @media (max-width: 639px) {
+      #route-modal .modal-inner { padding-bottom: calc(10px + env(safe-area-inset-bottom)); padding-top: calc(10px + env(safe-area-inset-top)); }
+      #route-close-btn { top: calc(8px + env(safe-area-inset-top)); right: 10px; }
+      #route-anim-controls { bottom: 8px; left: 8px; }
+      .route-gmaps-btn { padding: 5px 9px; }
+      .leaflet-control-zoom a { width: 32px !important; height: 32px !important; line-height: 32px !important; }
+    }
+    @media (max-width: 640px) {
+      .map-place-label { font-size: 10px !important; }
+      .map-legend { font-size: 10px; padding: 4px 7px; }
+    }
+  </style>
+</head>
+<body class="pb-20 text-lg">
+
+  <!-- 頂端固定選單 -->
+  <nav class="fixed top-0 left-0 right-0 z-50 p-4 bg-[#FFFCF6] border-b-[3px] border-[#3E3A39] flex justify-between items-center">
+    <div class="font-extrabold text-xl flex items-center gap-2">
+      🐾 胖狗關西團
+    </div>
+    <div class="flex gap-4 text-base font-bold">
+      <a href="#info" class="hover:text-[#F2A497] transition-colors">資訊</a>
+      <a href="#itinerary" class="hover:text-[#A8D3E6] transition-colors">行程</a>
+      <a href="#checklist" class="hover:text-[#B9DAA5] transition-colors">待辦</a>
+    </div>
+  </nav>
+
+  <!-- 首頁主視覺 -->
+  <header id="hero" class="pt-28 pb-10 px-4 flex flex-col items-center text-center">
+    
+    <!-- 自繪 SVG 插圖 (柴犬 + 鳥居 + 飛機) -->
+    <div class="animate-float mb-6 w-56 h-56 relative">
+      <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+        <!-- 雲朵 -->
+        <path d="M 20 180 Q 20 160 40 160 Q 50 140 70 140 Q 90 140 95 160 Q 110 160 110 180 Z" fill="#ffffff" stroke="#3E3A39" stroke-width="3" stroke-linejoin="round" />
+        <path d="M 160 80 Q 160 65 175 65 Q 185 50 200 50 Q 215 50 220 65 Q 235 65 235 80 Z" fill="#ffffff" stroke="#3E3A39" stroke-width="3" stroke-linejoin="round" />
+        
+        <!-- 飛機 -->
+        <g transform="translate(160, 40) rotate(-15)">
+          <path d="M 10 30 L 50 30 L 65 40 L 70 40 L 60 25 L 75 25 Q 85 25 85 20 Q 85 15 75 15 L 60 15 L 70 0 L 65 0 L 50 10 L 10 10 Q 0 10 0 20 Q 0 30 10 30 Z" fill="#A8D3E6" stroke="#3E3A39" stroke-width="3" stroke-linejoin="round"/>
+        </g>
+
+        <!-- 鳥居 -->
+        <g stroke="#3E3A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" transform="translate(50, 80)">
+          <rect x="20" y="30" width="12" height="100" fill="#F2A497" />
+          <rect x="108" y="30" width="12" height="100" fill="#F2A497" />
+          <path d="M 5 20 L 135 20" fill="none" stroke-width="8" />
+          <path d="M 5 12 L 135 12" fill="#3E3A39" stroke-width="8" />
+          <rect x="15" y="35" width="110" height="8" fill="#F2A497" stroke="none" />
+          <path d="M 15 35 L 125 35 M 15 43 L 125 43" fill="none" />
+          <rect x="64" y="20" width="12" height="20" fill="#F2A497" />
+        </g>
+        
+        <!-- 柴犬 -->
+        <g transform="translate(120, 160)">
+          <!-- 耳朵 -->
+          <path d="M -25 -15 L -35 -40 L -5 -25 Z" fill="#F6D27A" stroke="#3E3A39" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M 25 -15 L 35 -40 L 5 -25 Z" fill="#F6D27A" stroke="#3E3A39" stroke-width="3" stroke-linejoin="round"/>
+          <!-- 臉 -->
+          <path d="M -30 -15 Q 0 -35 30 -15 Q 40 5 30 25 Q 0 35 -30 25 Q -40 5 -30 -15 Z" fill="#F6D27A" stroke="#3E3A39" stroke-width="3"/>
+          <!-- 白臉頰 -->
+          <path d="M -25 0 Q 0 -10 25 0 Q 35 20 25 20 Q 0 30 -25 20 Q -35 20 -25 0 Z" fill="#FFFCF6" stroke="none"/>
+          <!-- 眼睛 -->
+          <circle cx="-12" cy="0" r="3.5" fill="#3E3A39" />
+          <circle cx="12" cy="0" r="3.5" fill="#3E3A39" />
+          <!-- 鼻子 -->
+          <ellipse cx="0" cy="8" rx="5" ry="3" fill="#3E3A39" />
+          <!-- 嘴巴 -->
+        <path d="M -8 15 Q 0 20 8 15" fill="none" stroke="#3E3A39" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+
+  <h1 class="text-4xl sm:text-5xl font-extrabold mb-5" style="letter-spacing: 0.05em; text-shadow: 2px 2px 0px #F2A497;">胖狗關西團</h1>
+  
+  <!-- 倒數計時器 -->
+  <div class="comic-box p-4 px-8 bg-[#F6D27A] inline-block mb-3">
+    <p class="text-base font-bold mb-1 border-b-2 border-dashed border-[#3E3A39] pb-1">距離出發還有</p>
+      <div id="countdown" class="text-2xl sm:text-3xl font-extrabold tracking-wider mt-2">
+        計算中...
+      </div>
+    </div>
+  </header>
+
+  <!-- 資訊卡片區 -->
+  <section id="info" class="px-4 mb-12 max-w-3xl mx-auto flex flex-col gap-8">
+    
+    <!-- 航班卡片 (星宇機票造型) -->
+    <div>
+      <h2 class="text-2xl font-extrabold mb-4 flex items-center gap-2 text-[#3E3A39]">
+        ✈️ 航班資訊
+      </h2>
+      <div class="comic-box flex w-full max-w-md mx-auto overflow-hidden bg-white">
+        <!-- 機票左側 (主資訊) -->
+        <div class="flex-1 p-4 sm:p-5 bg-[#A8D3E6] border-r-[3px] border-dashed border-[#3E3A39] flex flex-col justify-center">
+           <div class="font-extrabold text-lg sm:text-xl mb-1 text-[#3E3A39]">星宇航空 STARLUX</div>
+           <div class="flex items-center justify-between mt-3 px-1">
+              <div class="text-center">
+                <div class="text-3xl font-black text-[#3E3A39]">TPE</div>
+                <div class="text-sm font-bold mt-1 text-[#3E3A39]">台北</div>
+              </div>
+              <div class="text-2xl animate-float">✈️</div>
+              <div class="text-center">
+                <div class="text-3xl font-black text-[#3E3A39]">UKB</div>
+                <div class="text-sm font-bold mt-1 text-[#3E3A39]">神戶</div>
+              </div>
+           </div>
+        </div>
+        <!-- 機票右側 (存根聯) -->
+        <div class="w-28 sm:w-32 bg-[#F2A497] p-3 flex flex-col justify-center items-center">
+           <div class="text-xs sm:text-sm font-bold border-b-[3px] border-[#3E3A39] pb-1 mb-2 text-[#3E3A39]">FLIGHT</div>
+           <div class="font-black text-base sm:text-lg text-[#3E3A39]">JX834</div>
+           <div class="font-black text-base sm:text-lg mt-1 text-[#3E3A39]">JX835</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 住宿總覽 (緊湊卡片排版) -->
+    <div>
+      <h2 class="text-2xl font-extrabold mb-4 flex items-center gap-2 text-[#3E3A39]">
+        🏨 住宿安排
+      </h2>
+      <div class="flex flex-col sm:flex-row gap-4 w-full">
+        <!-- Day 1 -->
+        <div class="comic-box flex-1 bg-[#F6D27A] p-3 text-center transition-transform hover:-translate-y-1">
+           <div class="text-sm font-bold mb-2 border-b-[3px] border-dashed border-[#3E3A39] pb-1 inline-block px-3 text-[#3E3A39]">Day 1</div>
+           <div class="font-extrabold text-lg text-[#3E3A39]">the b 神戶</div>
+        </div>
+        <!-- Day 2-5 -->
+        <div class="comic-box flex-1 bg-[#B9DAA5] p-3 text-center transition-transform hover:-translate-y-1">
+           <div class="text-sm font-bold mb-2 border-b-[3px] border-dashed border-[#3E3A39] pb-1 inline-block px-3 text-[#3E3A39]">Day 2-5</div>
+           <div class="font-extrabold text-lg text-[#3E3A39]">Randor Nijo</div>
+        </div>
+        <!-- Day 6-9 -->
+        <div class="comic-box flex-1 bg-[#FFFCF6] p-3 text-center transition-transform hover:-translate-y-1">
+           <div class="text-sm font-bold mb-2 border-b-[3px] border-dashed border-[#3E3A39] pb-1 inline-block px-3 text-[#3E3A39]">Day 6-9</div>
+           <div class="font-extrabold text-lg text-[#3E3A39]">住一心齋橋</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- 每日行程區 -->
+  <section id="itinerary" class="px-4 mb-16 max-w-3xl mx-auto">
+    <h2 class="text-3xl font-extrabold mb-6 flex items-center gap-2">
+      🗓️ 每日詳細行程
+    </h2>
+    
+    <!-- 日期切換按鈕 -->
+    <div class="flex gap-3 overflow-x-auto pb-6 hide-scrollbar px-1" id="day-tabs">
+      <!-- 透過 JS 動態生成按鈕 -->
+    </div>
+
+    <!-- 行程內容顯示區 -->
+    <div id="itinerary-content" class="comic-box bg-white p-5 sm:p-8 mt-2 min-h-[400px]">
+      <!-- 透過 JS 動態生成時間軸內容 -->
+    </div>
+  </section>
+
+  <!-- 待辦清單區 -->
+  <section id="checklist" class="px-4 mb-16 max-w-3xl mx-auto">
+    <h2 class="text-3xl font-extrabold mb-6 flex items-center gap-2">
+      ✅ 行前待辦清單
+    </h2>
+    <div class="comic-box bg-white p-6 space-y-5">
+      
+      <label class="flex items-center gap-4 cursor-pointer group">
+        <input type="checkbox" class="todo-checkbox">
+        <span class="font-bold text-xl group-hover:text-[#F2A497] transition-colors">護照 (確認效期大於6個月)</span>
+      </label>
+      
+      <label class="flex items-center gap-4 cursor-pointer group">
+        <input type="checkbox" class="todo-checkbox">
+        <span class="font-bold text-xl group-hover:text-[#F2A497] transition-colors">機票與住宿預訂憑證</span>
+      </label>
+      
+      <label class="flex items-center gap-4 cursor-pointer group">
+        <input type="checkbox" class="todo-checkbox">
+        <span class="font-bold text-xl group-hover:text-[#F2A497] transition-colors">日幣現金 (神社賽錢/小吃/攤費)</span>
+      </label>
+      
+      <label class="flex items-center gap-4 cursor-pointer group">
+        <input type="checkbox" class="todo-checkbox">
+        <span class="font-bold text-xl group-hover:text-[#F2A497] transition-colors">Suica / ICOCA (綁定或儲值)</span>
+      </label>
+      
+      <label class="flex items-center gap-4 cursor-pointer group">
+        <input type="checkbox" class="todo-checkbox">
+        <span class="font-bold text-xl group-hover:text-[#F2A497] transition-colors">旅遊不便險 ＋ 旅平險</span>
+      </label>
+
+      <label class="flex items-center gap-4 cursor-pointer group">
+        <input type="checkbox" class="todo-checkbox">
+        <span class="font-bold text-xl group-hover:text-[#F2A497] transition-colors">網卡 (eSIM 或 實體網卡)</span>
+      </label>
+      
+    </div>
+  </section>
+
+  <footer class="text-center font-bold text-[#3E3A39] pb-10 text-base">
+    <p>🐾 2026 胖狗關西團 🐾</p>
+    <p class="mt-2 text-sm opacity-70">Have a nice trip!</p>
+  </footer>
+
+  <!-- 路線預覽 Modal -->
+  <div id="route-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/50 p-0 sm:p-4 transition-opacity">
+    <div class="comic-box w-full max-w-5xl h-[100dvh] sm:h-[90vh] bg-[#FFFCF6] relative flex flex-col max-sm:!rounded-none max-sm:!border-0 max-sm:!shadow-none" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button id="route-close-btn" aria-label="關閉路線圖" onclick="closeRouteModal()" class="absolute top-3 right-3 comic-btn bg-[#F2A497] text-[#3E3A39] w-10 h-10 rounded-full flex items-center justify-center text-xl z-[400] shadow-md">✖</button>
+      
+      <div class="modal-inner p-3 sm:p-6 flex flex-col h-full min-h-0 mt-0 sm:mt-6">
+        <h3 id="modal-title" class="text-lg sm:text-2xl font-extrabold mb-2 sm:mb-4 px-12 sm:px-0 text-center text-[#3E3A39]">🗺️ 今日路線與景點</h3>
+        
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 flex-1 min-h-0 overflow-hidden">
+          <!-- 中央地圖：暖米色街道底圖＋紅色星號景點標籤 -->
+          <div class="order-1 sm:order-2 flex-1 min-h-[220px] min-w-0 bg-[#e8d9c3] overflow-hidden relative rounded-xl border border-[#b8a995]">
+            <div class="absolute top-3 left-3 z-[1000] pointer-events-none">
+              <div class="map-legend"><span class="map-legend-star">★</span><span id="map-route-count">今日景點分布</span></div>
+            </div>
+            <div id="map-core" class="w-full h-full z-0"></div>
+            <div id="map-tile-status" class="map-tile-status" hidden>街道底圖載入中…</div>
+            <div id="route-top-right" class="absolute top-3 right-3 z-[1000] flex items-start gap-2">
+              <button id="anim-gmaps" type="button" onclick="openDayRouteInMaps()" class="route-gmaps-btn" style="display:none;" aria-label="在 Google Maps 開啟整天路線" title="在 Google Maps 開啟整天路線">🗺️<span class="gm-short">Google 地圖</span></button>
+            </div>
+            <div id="route-toast" class="route-toast" hidden></div>
+            <div id="route-now" class="absolute left-3 right-14 z-[1000] pointer-events-none" style="display:none; bottom:60px;" aria-live="polite">
+              <div class="route-now-card">
+                <span id="now-num" class="route-now-num">1</span>
+                <div style="min-width:0; flex:1">
+                  <div id="now-name" class="route-now-name"></div>
+                  <div class="route-now-sub"><span id="now-tag" class="route-now-tag"></span><span id="now-step"></span></div>
+                </div>
+                <div class="route-now-progress"><div id="now-bar"></div></div>
+              </div>
+            </div>
+            <div id="route-anim-controls" class="route-toolbar absolute bottom-3 left-3 z-[1000]" style="display:none;">
+              <button id="anim-play" type="button" onclick="toggleRouteAnimation()" class="rt-btn rt-primary" aria-label="播放路線" title="播放路線">▶</button>
+              <span class="rt-sep" aria-hidden="true"></span>
+              <button id="anim-speed" type="button" onclick="cycleRouteAnimSpeed()" class="rt-btn rt-speed" aria-label="切換播放速度" title="切換播放速度">1×</button>
+              <button id="anim-follow" type="button" onclick="toggleRouteFollow()" class="rt-btn is-on" aria-pressed="true" aria-label="鏡頭跟隨" title="鏡頭跟隨">🎥</button>
+            </div>
+          </div>
+
+          <!-- 左側照片牆 -->
+          <div id="cards-strip" class="order-2 sm:contents flex flex-row gap-2 overflow-x-auto overflow-y-hidden hide-scrollbar snap-x shrink-0 pb-1">
+            <div id="left-images" class="contents sm:flex sm:order-1 sm:w-32 sm:flex-col sm:gap-3 sm:overflow-y-auto hide-scrollbar sm:pb-4 sm:pr-1"></div>
+          <!-- 右側照片牆 -->
+          <div id="right-images" class="contents sm:flex sm:order-3 sm:w-32 sm:flex-col sm:gap-3 sm:overflow-y-auto hide-scrollbar sm:pb-4 sm:pl-1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Maps 確認開啟 Modal -->
+  <div id="gm-confirm" class="fixed inset-0 z-[110] hidden flex items-center justify-center bg-black/60 p-4 transition-opacity backdrop-blur-sm">
+    <div class="comic-box bg-white p-6 w-full max-w-sm text-center flex flex-col items-center">
+      <div class="text-4xl mb-3">🗺️</div>
+      <h3 class="text-xl font-extrabold text-[#3E3A39] mb-2">開啟 Google Maps</h3>
+      <p id="gm-confirm-text" class="text-base font-bold text-gray-600 mb-6 leading-relaxed">即將開啟 Google Maps 搜尋...</p>
+      
+      <div id="gm-extra-links" class="hidden w-full flex flex-col gap-2 mb-4"></div>
+      <div class="flex gap-4 w-full">
+        <button onclick="closeGmModal()" class="comic-btn bg-gray-200 text-[#3E3A39] py-2 flex-1 text-lg">取消</button>
+        <a id="gm-confirm-link" href="#" target="_blank" rel="noopener noreferrer" onclick="closeGmModal()" class="comic-btn bg-[#A8D3E6] text-[#3E3A39] py-2 flex-1 text-lg text-center leading-loose">確認開啟</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript 行程資料與邏輯 -->
+  <script>
+    /* 1. 倒數計時器 */
+    const targetDate = new Date("2026-12-06T00:00:00").getTime();
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const distance = targetDate - now;
+      const el = document.getElementById("countdown");
+      
+      if (distance < 0) {
+        el.innerHTML = "出發啦！🎉";
+        return;
+      }
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      el.innerHTML = `${days} 天 ${hours} 時 ${minutes} 分`;
+    }
+    setInterval(updateCountdown, 60000);
+    updateCountdown();
+
+    /* 2. 行程資料 */
+    const itineraryData = [
+      {
+        day: 1, hotel: "the b 神戶",
+        events: [
+          { time: "12:30", desc: "生田神社參拜", note: "水舞籤", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "13:30", desc: "本神戶肉森谷商店", note: "炸肉餅", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "14:00", desc: "元町商店街、南京町逛街", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "16:30", desc: "摩耶山掬星台觀景", note: "百萬夜景", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "19:30", desc: "神戸牛 ステーキ ノーブルウルス 三宮", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "21:00", desc: "神戶港夜間散策", note: "神戶港塔", tag: "景點", tagBg: "var(--color-green)" }
+        ]
+      },
+      {
+        day: 2, hotel: "Randor Residence Kyoto Nijo Castle",
+        events: [
+          { time: "10:00", desc: "ヤマサ蒲鉾 大手前店", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "10:20", desc: "姬路城、好古園參觀", note: "必去", mustGo: true, tag: "景點", tagBg: "var(--color-green)" },
+          { time: "12:30", desc: "炭焼あなご やま義", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "17:30", desc: "大起水產迴轉壽司", note: "京都塔店", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "18:30", desc: "京都車站周邊百貨", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "19:30", desc: "東寺夜間參拜", note: "", tag: "景點", tagBg: "var(--color-green)" }
+        ]
+      },
+      {
+        day: 3, hotel: "Randor Residence Kyoto Nijo Castle",
+        events: [
+          { time: "07:00", desc: "清水寺＋清水舞台", note: "必去", mustGo: true, tag: "景點", tagBg: "var(--color-green)" },
+          { time: "09:00", desc: "清水坂點心", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "09:30", desc: "二寧坂", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "10:20", desc: "八坂通", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "11:00", desc: "八坂神社＋花見小路", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "12:50", desc: "平安神宮", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "14:00", desc: "山元麵藏", note: "預約14:00", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "15:00", desc: "禪林寺", note: "極致紅葉", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "16:30", desc: "南禪寺", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "17:30", desc: "藍瓶咖啡", note: "京都店(南禪寺旁)", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "18:30", desc: "京都寶可夢中心", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "19:30", desc: "SHAKE SHACK", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "20:15", desc: "新風館夜間散策", note: "", tag: "景點", tagBg: "var(--color-green)" }
+        ]
+      },
+      {
+        day: 4, hotel: "Randor Residence Kyoto Nijo Castle",
+        events: [
+          { time: "09:00", desc: "金閣寺", note: "必去", mustGo: true, tag: "景點", tagBg: "var(--color-green)" },
+          { time: "11:40", desc: "はしだて茶屋", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "12:40", desc: "天橋立 View Land", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "14:20", desc: "元伊勢籠神社", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "15:30", desc: "伊根舟屋遊覽船", note: "16:00末班船", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "20:30", desc: "鶏出汁おでんと焼鳥つじや", note: "京都站前店", tag: "美食", tagBg: "var(--color-yellow)" }
+        ]
+      },
+      {
+        day: 5, hotel: "Randor Residence Kyoto Nijo Castle",
+        events: [
+          { time: "08:20", desc: "伏見稻荷大社", note: "必去", mustGo: true, tag: "景點", tagBg: "var(--color-green)" },
+          { time: "10:30", desc: "下鴨神社＋糺之森", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "11:30", desc: "加茂みたらし茶屋", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "12:00", desc: "そば処 司津屋", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "14:00", desc: "貴船神社", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "16:00", desc: "藍瓶咖啡＋I'm donut?", note: "木屋町店", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "17:00", desc: "新京極商店街", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "20:00", desc: "麵屋優光 河源町", note: "", tag: "美食", tagBg: "var(--color-yellow)" }
+        ]
+      },
+      {
+        day: 6, hotel: "住一心齋橋9號店",
+        events: [
+          { time: "09:30", desc: "京都車站最後掃貨", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "11:50", desc: "水谷茶屋", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "13:00", desc: "奈良逆時針散策", note: "必去", mustGo: true, tag: "景點", tagBg: "var(--color-green)" },
+          { time: "17:30", desc: "とんかつ なぎかつ", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "18:45", desc: "大丸百貨寶可夢 DX", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "20:00", desc: "固力果跑跑人＋蟹道樂", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "21:00", desc: "BIC CAMERA＋唐吉訶德", note: "", tag: "購物", tagBg: "var(--color-pink)" }
+        ]
+      },
+      {
+        day: 7, hotel: "住一心齋橋9號店",
+        events: [
+          { time: "10:00", desc: "大阪城御座船", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "10:20", desc: "大阪城天守閣", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "12:45", desc: "千房 曾根崎", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "14:00", desc: "露天神社", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "16:00", desc: "聖瑪麗亞號", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "16:50", desc: "天保山大摩天輪", note: "魔幻時刻", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "18:00", desc: "梅田商圈逛街", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "20:30", desc: "焼肉・ホルモン武士道", note: "大阪梅田のすみっこ店", tag: "美食", tagBg: "var(--color-yellow)" }
+        ]
+      },
+      {
+        day: 8, hotel: "住一心齋橋9號店",
+        events: [
+          { time: "09:30", desc: "難波八阪神社", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "11:00", desc: "千とせ 本店", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "12:00", desc: "日本橋電器街", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "14:30", desc: "通天閣＋新世界", note: "", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "16:30", desc: "達摩串炸", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "17:00", desc: "阿倍野展望台", note: "必去", mustGo: true, tag: "景點", tagBg: "var(--color-green)" },
+          { time: "19:30", desc: "神座拉麵", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "21:00", desc: "Wonder Cruise", note: "預約21:00", tag: "景點", tagBg: "var(--color-green)" },
+          { time: "21:30", desc: "心斎橋サンド", note: "", tag: "美食", tagBg: "var(--color-yellow)" }
+        ]
+      },
+      {
+        day: 9, hotel: "住一心齋橋9號店",
+        events: [
+          { time: "09:00", desc: "藍瓶咖啡 心齋橋店", note: "", tag: "美食", tagBg: "var(--color-yellow)" },
+          { time: "11:00", desc: "購物大進擊1：心齋橋筋商店街", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "13:00", desc: "購物大進擊2：難波/道頓堀", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "15:00", desc: "購物大進擊3：美國村/南堀江", note: "", tag: "購物", tagBg: "var(--color-pink)" },
+          { time: "18:00", desc: "壽喜燒大牧場", note: "預約18:00", tag: "美食", tagBg: "var(--color-yellow)" }
+        ]
+      },
+      {
+        day: 10, hotel: "無住宿",
+        events: []
+      }
+    ];
+
+    let currentDayIndex = 0;
+
+    /* 渲染上方日期頁籤 */
+    function renderTabs() {
+      const tabsContainer = document.getElementById("day-tabs");
+      tabsContainer.innerHTML = "";
+      
+      itineraryData.forEach((dayData, index) => {
+        const btn = document.createElement("button");
+        const isActive = index === currentDayIndex ? "active-tab" : "bg-white text-[#3E3A39]";
+        
+        btn.className = `comic-btn px-5 py-3 flex-shrink-0 text-lg sm:text-xl ${isActive}`;
+        btn.innerText = `Day ${dayData.day}`;
+        btn.setAttribute('aria-pressed', index === currentDayIndex ? 'true' : 'false');
+        
+        btn.onclick = () => {
+          currentDayIndex = index;
+          renderTabs();
+          renderContent();
+        };
+        tabsContainer.appendChild(btn);
+      });
+    }
+
+    /* 渲染下方詳細時間軸 */
+    function renderContent() {
+      const contentContainer = document.getElementById("itinerary-content");
+      const dayData = itineraryData[currentDayIndex];
+      
+      contentContainer.classList.remove("animate-bounceIn");
+      void contentContainer.offsetWidth;
+      contentContainer.classList.add("animate-bounceIn");
+
+      let html = `
+        <div class="mb-6 border-b-[3px] border-dashed border-[#3E3A39] pb-4 flex flex-row items-end justify-between gap-3 sm:gap-4">
+          <div class="min-w-0 flex-1">
+            <h3 class="text-2xl font-extrabold flex items-center gap-2">
+              📍 第 ${dayData.day} 天行程
+            </h3>
+            <p class="text-base font-bold mt-2 text-gray-600 flex flex-wrap items-center gap-1">
+              <span>🏨 住宿：</span>
+              <span class="comic-tag bg-[#FFFCF6]">${dayData.hotel}</span>
+            </p>
+          </div>
+          ${dayData.events.length > 0 ? `<button onclick="openRouteModal(${currentDayIndex})" class="comic-btn bg-[#A8D3E6] text-[#3E3A39] px-3 sm:px-4 py-2 text-sm sm:text-base flex items-center justify-center gap-1 sm:gap-2 shrink-0 whitespace-nowrap transition-transform hover:-translate-y-1">🗺️ 路線預覽</button>` : ''}
+        </div>
+      `;
+      
+      if (dayData.events.length === 0) {
+        html += `<div class="text-center text-gray-500 font-bold mt-10 mb-6 text-lg">本日無景點與餐廳安排，準備搭機平安返家囉！✈️</div>`;
+      } else {
+        html += `<div class="timeline-container space-y-7 mt-4">`;
+        
+        dayData.events.forEach(event => {
+          const mustGoBadge = event.mustGo ? `<span class="comic-tag bg-[#F2A497] text-white ml-2 shadow-sm">🌟 必去</span>` : "";
+          const noteText = event.note ? `<p class="text-sm font-bold text-gray-500 mt-1 pl-1">💡 ${event.note}</p>` : "";
+          
+          html += `
+            <div class="relative pl-6">
+              <div class="timeline-dot"></div>
+              <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <span class="font-extrabold text-[#3E3A39] text-xl min-w-[70px]">${event.time}</span>
+                <div class="mt-1 sm:mt-0">
+                  <span class="comic-tag mb-1" style="background-color: ${event.tagBg};">${event.tag}</span>
+                  <span class="font-bold text-xl ml-1 leading-snug">${event.desc}</span>
+                  ${mustGoBadge}
+                  ${noteText}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += `</div>`;
+      }
+      
+      contentContainer.innerHTML = html;
+    }
+
+    renderTabs();
+    renderContent();
+
+    /* 3. 地圖與路線預覽邏輯 */
+    function openMaps(label, query) {
+      document.getElementById('gm-confirm-text').innerText = `是否要搜尋「${label}」並為您導航？`;
+      const mainLink = document.getElementById('gm-confirm-link');
+      mainLink.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(query || label);
+      mainLink.textContent = '確認開啟';
+      document.getElementById('gm-extra-links').classList.add('hidden');
+      document.getElementById('gm-confirm').classList.remove('hidden');
+    }
+
+    function closeGmModal() {
+      document.getElementById('gm-confirm').classList.add('hidden');
+    }
+
+    let leafletMap = null;
+    let markersLayer = null;
+    let mapTileLayer = null;
+    let mapTileLoadCount = 0;
+    let mapTileCheckToken = 0;
+    let routeRenderToken = 0;
+    let routeTimers = [];
+    let lastFocusedEl = null;
+    function clearRouteTimers() { routeTimers.forEach(id => clearTimeout(id)); routeTimers = []; }
+
+    /* ============================================================
+       景點資料表：行程文字 → [顯示名稱, [緯度,經度], Google Maps 搜尋字, 維基百科條目(依序嘗試), 無照片時的表情符號]
+       顯示名稱只保留景點／店名；動詞（參拜、參觀、逛街…）與時段字眼都已去除。
+       ============================================================ */
+    const placeCatalog = {
+      // Day 1 神戶
+      "生田神社參拜": ["生田神社", [34.6953,135.1907], "生田神社 神戶", ["生田神社"], "⛩️"],
+      "本神戶肉森谷商店": ["森谷商店", [34.6896,135.1882], "本神戸肉 森谷商店 元町本店", [], "🥩"],
+      "摩耶山掬星台觀景": ["摩耶山掬星台", [34.7303,135.2069], "摩耶山 掬星台", ["掬星台","摩耶山"], "🌃"],
+      "神戸牛 ステーキ ノーブルウルス 三宮": ["ノーブルウルス", [34.6940,135.1915], "神戸牛 ステーキ ノーブルウルス 三宮", [], "🥩"],
+      "神戶港夜間散策": ["神戶港", [34.6826,135.1867], "神戶港 神戶港塔", ["神戸ポートタワー","神戸港"], "🌉"],
+      // Day 2 姬路
+      "ヤマサ蒲鉾 大手前店": ["ヤマサ蒲鉾", [34.8348,134.6902], "ヤマサ蒲鉾 大手前店 姫路", [], "🍥"],
+      "炭焼あなご やま義": ["やま義", [34.8327,134.6910], "炭焼あなご やま義 姫路", [], "🍱"],
+      "大起水產迴轉壽司": ["大起水產", [34.9873,135.7592], "大起水產 京都塔店", [], "🍣"],
+      "京都車站周邊百貨": ["京都車站", [34.9858,135.7588], "京都車站", ["京都駅"], "🚉"],
+      "東寺夜間參拜": ["東寺", [34.9811,135.7476], "東寺 京都", ["東寺"], "⛩️"],
+      // Day 3 京都東山
+      "清水寺＋清水舞台": ["清水寺", [34.9948,135.7850], "清水寺 清水舞台", ["清水寺"], "⛩️"],
+      "清水坂點心": ["清水坂", [34.9964,135.7825], "清水坂 京都", ["清水坂"], "🍡"],
+      "二寧坂": ["二寧坂", [34.9984,135.7804], "二年坂 京都", ["二年坂"], "🏘️"],
+      "八坂通": ["八坂通", [35.0011,135.7790], "八坂通 京都", ["法観寺"], "🗼"],
+      "平安神宮": ["平安神宮", [35.0159,135.7824], "平安神宮", ["平安神宮"], "⛩️"],
+      "山元麵藏": ["山元麵藏", [35.0164,135.7828], "山元麺蔵 京都", [], "🍜"],
+      "禪林寺": ["禪林寺", [35.0140,135.7936], "禅林寺 永観堂 京都", ["禅林寺 (京都市)","禅林寺"], "🍁"],
+      "南禪寺": ["南禪寺", [35.0112,135.7937], "南禅寺 京都", ["南禅寺"], "🍁"],
+      "藍瓶咖啡": ["藍瓶咖啡", [35.0105,135.7910], "ブルーボトルコーヒー 京都カフェ", [], "☕"],
+      "京都寶可夢中心": ["寶可夢中心", [35.0046,135.7621], "ポケモンセンターキョウト", [], "⚡"],
+      "SHAKE SHACK": ["SHAKE SHACK", [35.0080,135.7583], "シェイクシャック 京都", [], "🍔"],
+      "新風館夜間散策": ["新風館", [35.0080,135.7583], "新風館 京都", ["新風館"], "🌙"],
+      // Day 4 天橋立
+      "金閣寺": ["金閣寺", [35.0393,135.7292], "金閣寺 京都", ["金閣寺","鹿苑寺"], "✨"],
+      "はしだて茶屋": ["はしだて茶屋", [35.5710,135.1945], "はしだて茶屋 天橋立", [], "🍵"],
+      "天橋立 View Land": ["天橋立 View Land", [35.5560,135.1907], "天橋立ビューランド", ["天橋立ビューランド","天橋立"], "🌊"],
+      "元伊勢籠神社": ["元伊勢籠神社", [35.5781,135.1947], "元伊勢籠神社", ["籠神社"], "⛩️"],
+      "伊根舟屋遊覽船": ["伊根舟屋", [35.6723,135.2891], "伊根湾めぐり遊覧船 伊根舟屋", ["伊根の舟屋","伊根町"], "⛴️"],
+      "鶏出汁おでんと焼鳥つじや": ["つじや", [34.9870,135.7595], "鶏出汁おでんと焼鳥つじや 京都駅前店", [], "🍢"],
+      // Day 5 京都
+      "伏見稻荷大社": ["伏見稻荷大社", [34.9671,135.7726], "伏見稲荷大社 千本鳥居", ["伏見稲荷大社"], "⛩️"],
+      "加茂みたらし茶屋": ["加茂みたらし茶屋", [35.0298,135.7732], "加茂みたらし茶屋", [], "🍡"],
+      "そば処 司津屋": ["司津屋", [35.0300,135.7730], "そば処 司津屋 京都", [], "🍜"],
+      "貴船神社": ["貴船神社", [35.1217,135.7628], "貴船神社 京都", ["貴船神社"], "⛩️"],
+      "新京極商店街": ["新京極商店街", [35.0048,135.7683], "新京極商店街 京都", ["新京極通"], "🛍️"],
+      "麵屋優光 河源町": ["麵屋優光", [35.0055,135.7683], "麺屋優光 京都河原町", [], "🍜"],
+      // Day 6 奈良→大阪
+      "京都車站最後掃貨": ["京都車站", [34.9858,135.7588], "京都駅", ["京都駅"], "🚉"],
+      "水谷茶屋": ["水谷茶屋", [34.6830,135.8450], "水谷茶屋 奈良公園", ["水谷茶屋"], "🍵"],
+      "奈良逆時針散策": ["奈良公園", [34.6850,135.8430], "奈良公園 東大寺", ["奈良公園"], "🦌"],
+      "とんかつ なぎかつ": ["なぎかつ", [34.6692,135.5013], "とんかつ なぎかつ 大阪", [], "🍱"],
+      "大丸百貨寶可夢 DX": ["大丸寶可夢 DX", [34.6743,135.5013], "大丸心斎橋 ポケモンセンターオーサカDX", [], "⚡"],
+      // Day 7 大阪
+      "大阪城御座船": ["大阪城御座船", [34.6890,135.5260], "大阪城御座船", ["大阪城御座船"], "⛴️"],
+      "大阪城天守閣": ["大阪城天守閣", [34.6873,135.5262], "大阪城天守閣", ["大阪城天守閣","大阪城"], "🏯"],
+      "千房 曾根崎": ["千房", [34.7005,135.5003], "千房 曽根崎本店", [], "🥞"],
+      "露天神社": ["露天神社", [34.6998,135.5007], "露天神社 お初天神", ["露天神社"], "⛩️"],
+      "聖瑪麗亞號": ["聖瑪麗亞號", [34.6563,135.4312], "大阪港帆船型観光船 サンタマリア", ["サンタマリア (観光船)","サンタ・マリア号"], "⛵"],
+      "天保山大摩天輪": ["天保山大摩天輪", [34.6550,135.4280], "天保山大観覧車", ["天保山大観覧車","天保山"], "🎡"],
+      "梅田商圈逛街": ["梅田", [34.7024,135.4959], "梅田スカイビル 梅田", ["梅田スカイビル","梅田"], "🌆"],
+      "焼肉・ホルモン武士道": ["武士道", [34.7000,135.5000], "焼肉 ホルモン武士道 梅田", [], "🥩"],
+      // Day 8 大阪
+      "難波八阪神社": ["難波八阪神社", [34.6598,135.4990], "難波八阪神社", ["難波八阪神社"], "⛩️"],
+      "千とせ 本店": ["千とせ", [34.6667,135.5015], "千とせ 本店 大阪", [], "🍲"],
+      "日本橋電器街": ["日本橋電器街", [34.6628,135.5060], "大阪 日本橋でんでんタウン", ["でんでんタウン","日本橋 (大阪市)"], "🔌"],
+      "達摩串炸": ["達摩串炸", [34.6525,135.5063], "串かつだるま 新世界総本店", [], "🍢"],
+      "阿倍野展望台": ["阿倍野展望台", [34.6458,135.5140], "あべのハルカス ハルカス300", ["あべのハルカス"], "🌇"],
+      "神座拉麵": ["神座拉麵", [34.6685,135.5020], "どうとんぼり神座 道頓堀店", [], "🍜"],
+      "Wonder Cruise": ["Wonder Cruise", [34.6687,135.5020], "Wonder Cruise 道頓堀", ["道頓堀川"], "🚤"],
+      "心斎橋サンド": ["心斎橋サンド", [34.6714,135.5012], "心斎橋サンド", [], "🥪"],
+      // Day 9 大阪購物
+      "藍瓶咖啡 心齋橋店": ["藍瓶咖啡", [34.6714,135.5012], "ブルーボトルコーヒー 心斎橋", [], "☕"],
+      "購物大進擊1：心齋橋筋商店街": ["心齋橋筋商店街", [34.6714,135.5012], "心斎橋筋商店街", ["心斎橋筋商店街","心斎橋"], "🛍️"],
+      "購物大進擊2：難波/道頓堀": ["道頓堀", [34.6687,135.5020], "道頓堀 大阪", ["道頓堀"], "🛍️"],
+      "壽喜燒大牧場": ["壽喜燒大牧場", [34.6680,135.5030], "壽喜燒大牧場 大阪", [], "🥘"]
+    };
+
+    // 想自己指定照片時填在這裡：key 用「顯示名稱」。
+    // 例：{ "清水寺": "images/kiyomizu.jpg" }（把照片放進 repo 的 images 資料夾最穩定）
+    const customPhotos = {
+      // 把照片放進 repo 的 images 資料夾，拿掉下面該行開頭的 // 即可（key 是卡片上顯示的名稱）。
+      // "森谷商店": "images/moriya.jpg",
+      // "ノーブルウルス": "images/noble-urusu.jpg",
+      // "ヤマサ蒲鉾": "images/yamasa.jpg",
+      // "やま義": "images/yamagi.jpg",
+      // "大起水產": "images/daiki.jpg",
+      // "山元麵藏": "images/yamamoto-menzo.jpg",
+      // "藍瓶咖啡": "images/blue-bottle.jpg",
+      // "寶可夢中心": "images/pokemon-center-kyoto.jpg",
+      // "SHAKE SHACK": "images/shake-shack.jpg",
+      // "はしだて茶屋": "images/hashidate-chaya.jpg",
+      // "つじや": "images/tsujiya.jpg",
+      // "加茂みたらし茶屋": "images/kamo-mitarashi.jpg",
+      // "司津屋": "images/tsukasaya.jpg",
+      // "I'm donut?": "images/im-donut.jpg",
+      // "麵屋優光": "images/yuko.jpg",
+      // "なぎかつ": "images/nagikatsu.jpg",
+      // "大丸寶可夢 DX": "images/pokemon-dx.jpg",
+      // "蟹道樂": "images/kani-doraku.jpg",
+      // "BIC CAMERA": "images/bic-camera.jpg",
+      // "唐吉訶德": "images/donki.jpg",
+      // "千房": "images/chibo.jpg",
+      // "武士道": "images/bushido.jpg",
+      // "千とせ": "images/chitose.jpg",
+      // "達摩串炸": "images/daruma.jpg",
+      // "神座拉麵": "images/kamukura.jpg",
+      // "心斎橋サンド": "images/shinsaibashi-sando.jpg",
+      // "壽喜燒大牧場": "images/sukiyaki-ohmakiba.jpg"
+    };
+
+    // 照片查找提示（只列有公開照片的景點）：en = 英文維基條目、commons = Wikimedia Commons 搜尋字
+    const photoHints = {
+      "生田神社": { en: ["Ikuta Shrine"], commons: "Ikuta Shrine Kobe" },
+      "元町・南京町": { en: ["Nankinmachi"], commons: "Nankinmachi Kobe Chinatown" },
+      "摩耶山掬星台": { en: ["Mount Maya (Hyōgo)"], commons: "Kikuseidai Mount Maya Kobe night view" },
+      "神戶港": { en: ["Kobe Port Tower","Port of Kobe"], commons: "Kobe Port Tower" },
+      "姬路城・好古園": { en: ["Himeji Castle"], commons: "Himeji Castle" },
+      "京都車站": { en: ["Kyoto Station"], commons: "Kyoto Station building" },
+      "東寺": { en: ["Tō-ji"], commons: "Toji pagoda Kyoto" },
+      "清水寺": { en: ["Kiyomizu-dera"], commons: "Kiyomizu-dera" },
+      "清水坂": { en: [], commons: "Kiyomizuzaka Kyoto street" },
+      "二寧坂": { en: ["Ninenzaka"], commons: "Ninenzaka Kyoto" },
+      "八坂通": { en: [], commons: "Yasaka Pagoda Hokan-ji Kyoto" },
+      "八坂神社・花見小路": { en: ["Yasaka Shrine"], commons: "Yasaka Shrine Kyoto" },
+      "平安神宮": { en: ["Heian Shrine"], commons: "Heian Jingu Kyoto" },
+      "禪林寺": { en: ["Eikan-dō Zenrin-ji"], commons: "Eikando Zenrinji Kyoto" },
+      "南禪寺": { en: ["Nanzen-ji"], commons: "Nanzen-ji Sanmon Kyoto" },
+      "新風館": { en: [], commons: "Shinpuhkan Kyoto" },
+      "金閣寺": { en: ["Kinkaku-ji"], commons: "Kinkaku-ji" },
+      "天橋立 View Land": { en: ["Amanohashidate"], commons: "Amanohashidate View Land" },
+      "元伊勢籠神社": { en: ["Kono Shrine (Kyoto)"], commons: "Motoise Kono Shrine Miyazu" },
+      "伊根舟屋": { en: ["Ine, Kyoto"], commons: "Ine Funaya boat houses" },
+      "伏見稻荷大社": { en: ["Fushimi Inari-taisha"], commons: "Fushimi Inari Taisha torii" },
+      "下鴨神社・糺之森": { en: ["Shimogamo Shrine"], commons: "Shimogamo Shrine Kyoto" },
+      "貴船神社": { en: ["Kifune Shrine"], commons: "Kifune Shrine Kyoto" },
+      "新京極商店街": { en: [], commons: "Shinkyogoku Kyoto shopping street" },
+      "水谷茶屋": { en: [], commons: "Mizuya Chaya Nara Park" },
+      "奈良公園": { en: ["Nara Park"], commons: "Nara Park deer" },
+      "固力果・蟹道樂": { en: [], commons: "Glico Man sign Dotonbori" },
+      "大阪城御座船": { en: [], commons: "Osaka Castle Gozabune boat" },
+      "大阪城天守閣": { en: ["Osaka Castle"], commons: "Osaka Castle" },
+      "露天神社": { en: ["Tsuyunoten Shrine"], commons: "Tsuyunoten Shrine Ohatsu Tenjin Osaka" },
+      "聖瑪麗亞號": { en: [], commons: "Santa Maria sightseeing ship Osaka Harbor" },
+      "天保山大摩天輪": { en: ["Tempozan Ferris Wheel"], commons: "Tempozan Ferris Wheel" },
+      "梅田": { en: ["Umeda Sky Building"], commons: "Umeda Sky Building" },
+      "難波八阪神社": { en: ["Namba Yasaka Shrine"], commons: "Namba Yasaka Shrine lion stage" },
+      "日本橋電器街": { en: [], commons: "Den Den Town Nipponbashi Osaka" },
+      "通天閣・新世界": { en: ["Tsutenkaku"], commons: "Tsutenkaku Shinsekai" },
+      "阿倍野展望台": { en: ["Abeno Harukas"], commons: "Abeno Harukas" },
+      "Wonder Cruise": { en: [], commons: "Dotonbori river cruise boat" },
+      "心齋橋筋商店街": { en: [], commons: "Shinsaibashi-suji shopping street" },
+      "道頓堀": { en: ["Dōtonbori"], commons: "Dotonbori canal night" },
+      "美國村・南堀江": { en: [], commons: "Amerika-mura Osaka" }
+    };
+
+    // 餐廳、咖啡店、商店：只搜尋「店家本身」的 Commons 照片，且檔名必須含店名（must）才採用，
+    // 找不到就保持表情符號，不再放餐點照。小店家通常沒有公開授權的外觀照，建議用 customPhotos 放自己拍的。
+    Object.assign(photoHints, {
+      "森谷商店": { en: [], commons: "Moriya Kobe beef Motomachi", must: "moriya|森谷" },
+      "大起水產": { en: [], commons: "Daiki Suisan sushi", must: "daiki|大起" },
+      "藍瓶咖啡": { en: [], commons: "Blue Bottle Coffee Kyoto", must: "blue ?bottle" },
+      "寶可夢中心": { en: [], commons: "Pokémon Center Kyoto", must: "pok.?mon.?center.*kyoto|kyoto.*pok.?mon" },
+      "SHAKE SHACK": { en: [], commons: "Shake Shack Kyoto", must: "shake ?shack.*(kyoto|japan)|kyoto.*shake" },
+      "加茂みたらし茶屋": { en: [], commons: "Kamo Mitarashi Chaya", must: "mitarashi" },
+      "大丸寶可夢 DX": { en: [], commons: "Pokémon Center Osaka", must: "pok.?mon.?center.*osaka|osaka.*pok.?mon" },
+      "蟹道樂": { en: [], commons: "Kani Doraku Dotonbori", must: "kani ?doraku|かに道楽" },
+      "千房": { en: [], commons: "Chibo Okonomiyaki", must: "chibo|千房" },
+      "達摩串炸": { en: [], commons: "Kushikatsu Daruma Shinsekai", must: "daruma|だるま" },
+      "神座拉麵": { en: [], commons: "Kamukura Ramen Dotonbori", must: "kamukura|神座" },
+      "南堀江": { en: [], commons: "Minami-Horie Osaka" }
+    });
+
+    // 一個行程項目含兩個地名時，拆成各自獨立的卡片與地圖圖示。
+    // 格式同 placeCatalog：[顯示名稱, [緯度,經度], Google Maps 搜尋字, 日文維基條目, 表情符號]
+    const splitCatalog = {
+      "元町商店街、南京町逛街": [
+        ["元町商店街", [34.6887,135.1875], "元町商店街 神戶", ["元町商店街"], "🛍️"],
+        ["南京町", [34.6881,135.1878], "南京町 神戶 中華街", ["南京町"], "🏮"]
+      ],
+      "姬路城、好古園參觀": [
+        ["姬路城", [34.8394,134.6939], "姫路城", ["姫路城"], "🏯"],
+        ["好古園", [34.8355,134.6917], "好古園 姫路", ["好古園"], "🌿"]
+      ],
+      "八坂神社＋花見小路": [
+        ["八坂神社", [35.0036,135.7785], "八坂神社 京都", ["八坂神社"], "⛩️"],
+        ["花見小路", [35.0035,135.7752], "花見小路 京都 祇園", ["花見小路通"], "🏮"]
+      ],
+      "下鴨神社＋糺之森": [
+        ["下鴨神社", [35.0392,135.7730], "下鴨神社 京都", ["賀茂御祖神社"], "⛩️"],
+        ["糺之森", [35.0383,135.7728], "糺の森 京都", ["糺の森"], "🌳"]
+      ],
+      "藍瓶咖啡＋I'm donut?": [
+        ["藍瓶咖啡", [35.0050,135.7680], "ブルーボトルコーヒー 京都 木屋町", [], "☕"],
+        ["I'm donut?", [35.0053,135.7684], "I'm donut? 京都", [], "🍩"]
+      ],
+      "固力果跑跑人＋蟹道樂": [
+        ["固力果跑跑人", [34.6688,135.5013], "道頓堀 グリコ看板", ["グリコ看板"], "🏃"],
+        ["蟹道樂", [34.6685,135.5023], "かに道楽 道頓堀本店", [], "🦀"]
+      ],
+      "BIC CAMERA＋唐吉訶德": [
+        ["BIC CAMERA", [34.6689,135.5016], "ビックカメラ なんば店", [], "🛍️"],
+        ["唐吉訶德", [34.6686,135.5026], "ドン・キホーテ 道頓堀店", [], "🎡"]
+      ],
+      "通天閣＋新世界": [
+        ["通天閣", [34.6525,135.5063], "通天閣", ["通天閣"], "🗼"],
+        ["新世界", [34.6531,135.5054], "新世界 大阪", ["新世界 (大阪市)"], "🏮"]
+      ],
+      "購物大進擊3：美國村/南堀江": [
+        ["美國村", [34.6718,135.4980], "アメリカ村 大阪", ["アメリカ村"], "🛍️"],
+        ["南堀江", [34.6700,135.4950], "南堀江 大阪", [], "🛍️"]
+      ]
+    };
+    Object.assign(photoHints, {
+      "元町商店街": { en: [], commons: "Motomachi shopping street Kobe" },
+      "姬路城": { en: ["Himeji Castle"], commons: "Himeji Castle" },
+      "好古園": { en: ["Koko-en"], commons: "Koko-en garden Himeji" },
+      "八坂神社": { en: ["Yasaka Shrine"], commons: "Yasaka Shrine Kyoto" },
+      "花見小路": { en: [], commons: "Hanamikoji Street Gion Kyoto" },
+      "下鴨神社": { en: ["Shimogamo Shrine"], commons: "Shimogamo Shrine Kyoto" },
+      "糺之森": { en: [], commons: "Tadasu no Mori Shimogamo Shrine forest" },
+      "固力果跑跑人": { en: [], commons: "Glico Man sign Dotonbori" },
+      "通天閣": { en: ["Tsutenkaku"], commons: "Tsutenkaku" },
+      "新世界": { en: [], commons: "Shinsekai Osaka street" },
+      "美國村": { en: [], commons: "Amerika-mura Osaka" }
+    });
+
+    // 行程文字不在資料表時的備用處理：去掉動詞與時段字眼，座標留空（不會畫在地圖上）。
+    function cleanLabel(desc) {
+      const t = String(desc || '')
+        .replace(/夜間散策|周邊散策|逆時針散策|最後掃貨|大進擊\s*[0-9：:]*/g, '')
+        .replace(/參觀|參拜|逛街|觀景|散步|遊覽|夜間|午餐|晚餐|早餐|點心/g, '')
+        .trim();
+      return t || String(desc || '景點');
+    }
+
+    function makeLoc(row) {
+      const h = photoHints[row[0]] || {};
+      return { label: row[0], coord: row[1], query: row[2], wiki: row[3], en: h.en || [], commons: h.commons || '', must: h.must || '', emoji: row[4], generic: !!h.generic };
+    }
+    function getLocationData(desc) {
+      const row = placeCatalog[desc];
+      if (row) return makeLoc(row);
+      const label = cleanLabel(desc);
+      return { label, coord: null, query: desc, wiki: [], en: [], commons: '', must: '', emoji: '📍', generic: false };
+    }
+    // 回傳陣列：含兩個地名的項目會拆成多個地點
+    function getLocations(desc) {
+      const rows = splitCatalog[desc];
+      return rows ? rows.map(makeLoc) : [getLocationData(desc)];
+    }
+
+    // 行程文字與資料表對不上時在 Console 提醒（改了行程文字卻忘了改資料表，地圖會少一個點）。
+    itineraryData.forEach(day => day.events.forEach(ev => {
+      if (!placeCatalog[ev.desc] && !splitCatalog[ev.desc]) console.warn(`[行程資料] 找不到「${ev.desc}」的座標設定（Day ${day.day}），地圖不會顯示這個點。`);
+    }));
+
+    // 三層查找真實照片：日文維基條目 → 英文維基條目 → Wikimedia Commons 搜尋。
+    // 都找不到才顯示表情符號（餐廳、咖啡店等沒有公開照片的店家屬於此類）。
+    const photoCache = new Map();
+    async function getJson(url) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 7000);
+      try {
+        const res = await fetch(url, { signal: ctrl.signal });
+        return res.ok ? await res.json() : null;
+      } catch (_) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    async function wikiThumb(lang, title) {
+      const data = await getJson(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&redirects=1&prop=pageimages%7Cpageprops&piprop=thumbnail&pithumbsize=640&ppprop=disambiguation&format=json&origin=*`);
+      const page = Object.values(data?.query?.pages || {})[0];
+      if (!page || page.missing !== undefined || page.pageprops?.disambiguation !== undefined) return null;
+      const src = page.thumbnail?.source;
+      return src && !/\.svg/i.test(src) ? src : null;
+    }
+    async function commonsThumbs(query, must) {
+      const q = encodeURIComponent(query + ' filetype:bitmap');
+      const data = await getJson(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${q}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url%7Cmime&iiurlwidth=640&format=json&origin=*`);
+      const pages = Object.values(data?.query?.pages || {}).sort((a, b) => (a.index || 99) - (b.index || 99));
+      return pages
+        .filter(p => {
+          const info = p.imageinfo?.[0];
+          return info?.thumburl && /image\/(jpeg|png)/i.test(info.mime || '') && !/map|logo|flag|diagram|locator|icon|stamp/i.test(p.title || '') && (!must || new RegExp(must, 'i').test(p.title || ''));
+        })
+        .slice(0, 5)
+        .map(p => p.imageinfo[0].thumburl);
+    }
+    // 回傳「候選照片網址清單」；卡片會依序嘗試，前一張載入失敗就換下一張。
+    async function findPlacePhoto(loc) {
+      if (customPhotos[loc.label]) return [customPhotos[loc.label]];
+      if (!loc.wiki.length && !loc.en.length && !loc.commons) return [];
+      if (photoCache.has(loc.label)) return photoCache.get(loc.label);
+      const [jaList, enList, commonsList] = await Promise.all([
+        Promise.all(loc.wiki.map(t => wikiThumb('ja', t))),
+        Promise.all(loc.en.map(t => wikiThumb('en', t))),
+        loc.commons ? commonsThumbs(loc.commons, loc.must) : Promise.resolve([])
+      ]);
+      const urls = [...jaList, ...enList, ...commonsList].filter(Boolean);
+      const unique = [...new Set(urls)];
+      photoCache.set(loc.label, unique);
+      return unique;
+    }
+
+    function initMap() {
+      if (leafletMap) return;
+      leafletMap = L.map('map-core', {
+        zoomControl: false,
+        attributionControl: true,
+        preferCanvas: true,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false,
+        inertia: false,
+        worldCopyJump: false,
+        zoomSnap: 0.5,
+        zoomDelta: 0.5,
+        scrollWheelZoom: true,
+        keyboard: true
+      });
+      // 圖磚來源（皆免金鑰）。官方 osm.org 伺服器可能因使用政策回傳 403 封鎖圖，
+      // 所以預設改用 OSM France（同樣是 OpenStreetMap 資料、外觀相近），並提供右上角切換鈕。
+      const attrOSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>';
+      const baseOrder = [];
+      const bases = {};
+      const makeBase = (name, url, opts) => {
+        const layer = L.tileLayer(url, Object.assign({
+          detectRetina: false, updateWhenIdle: true, keepBuffer: 2, referrerPolicy: 'origin', minZoom: 3, maxZoom: 19
+        }, opts));
+        layer._loads = 0; layer._errors = 0;
+        layer.on('tileload', () => {
+          layer._loads++; mapTileLoadCount++;
+          const status = document.getElementById('map-tile-status');
+          if (status) status.hidden = true;
+        });
+        // 連續多張圖磚失敗且沒有任何成功（網路問題、被封鎖的伺服器等）→ 自動換下一個來源
+        layer.on('tileerror', () => {
+          layer._errors++;
+          if (layer._errors >= 4 && layer._loads === 0 && leafletMap.hasLayer(layer)) {
+            const next = bases[baseOrder[baseOrder.indexOf(name) + 1]];
+            if (next) { leafletMap.removeLayer(layer); next.addTo(leafletMap); }
+          }
+        });
+        bases[name] = layer; baseOrder.push(name);
+      };
+      makeBase('彩色街道', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, NGA, and others' });
+      makeBase('標準街道', 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+        { subdomains: 'abc', attribution: '&copy; OpenStreetMap France | ' + attrOSM });
+      makeBase('淡色簡潔', 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
+        { minZoom: 5, maxZoom: 18, attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>' });
+
+      let savedBase = null;
+      try { savedBase = localStorage.getItem('mapBase2'); } catch (_) {}
+      const firstBase = bases[savedBase] ? savedBase : baseOrder[0];
+      mapTileLayer = bases[firstBase].addTo(leafletMap);
+      const layersCtl = L.control.layers(bases, null, { position: 'topright', collapsed: true }).addTo(leafletMap);
+      const topRight = document.getElementById('route-top-right');
+      if (topRight) {
+        topRight.querySelectorAll('.leaflet-control-layers').forEach(n => n.remove());
+        const layersEl = layersCtl.getContainer();
+        layersEl.style.margin = '0';
+        layersEl.style.float = 'none';
+        topRight.appendChild(layersEl);   // 與 Google 按鈕同一排：展開時往下長，不會蓋住 Google 按鈕
+      }
+      leafletMap.on('moveend zoomend zoom', scheduleLabelUpdate);
+      leafletMap.on('baselayerchange', (e) => {
+        mapTileLayer = e.layer;
+        try { localStorage.setItem('mapBase2', e.name); } catch (_) {}
+      });
+      markersLayer = L.layerGroup().addTo(leafletMap);
+      L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+    }
+
+    function getShortMapLabel(label) {
+      // 地圖上只顯示第一個地標名稱；完整名稱保留在左右景點卡。
+      const t = String(label || '景點').split(/[・／/＋+、，,]/)[0].trim() || String(label || '景點');
+      return t.length > 8 ? t.slice(0, 8) + '…' : t;
+    }
+
+    function openRouteModal(dayIndex) {
+      clearRouteTimers();
+      stopRouteAnimation();
+      const renderToken = ++routeRenderToken;
+      const dayData = itineraryData[dayIndex];
+      if (!dayData || dayData.events.length === 0) return;
+      currentRouteDayNo = dayData.day;
+
+      document.getElementById('modal-title').innerText = `🗺️ Day ${dayData.day} 路線圖`;
+      const leftImages = document.getElementById('left-images');
+      const rightImages = document.getElementById('right-images');
+      leftImages.innerHTML = '';
+      rightImages.innerHTML = '';
+
+      const points = [];
+      const locList = dayData.events.flatMap(event => getLocations(event.desc).map(loc => Object.assign(loc, { tag: event.tag, tagBg: event.tagBg })));
+      const halfIndex = Math.ceil(locList.length / 2);
+      locList.forEach((loc, idx) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'comic-box bg-white p-1 sm:p-2 cursor-pointer transform transition-transform hover:-translate-y-1 w-[88px] shrink-0 snap-center sm:w-full sm:shrink aspect-[4/5] flex flex-col text-left';
+        card.setAttribute('aria-label', `在 Google Maps 搜尋 ${loc.label}`);
+        card.addEventListener('click', () => openMaps(loc.label, loc.query));
+
+        const imageFrame = document.createElement('div');
+        imageFrame.className = 'rounded overflow-hidden border-2 border-[#3E3A39] flex-1 relative flex items-center justify-center';
+        // 沒有照片時：底色沿用該行程的類別色（景點綠／美食黃／購物粉…），放大圖示並標上類別，看起來是刻意設計的卡片。
+        imageFrame.style.backgroundColor = loc.tagBg || '#f5f2eb';
+        const placeholder = document.createElement('div');
+        placeholder.className = 'flex flex-col items-center justify-center gap-1 select-none text-[#3E3A39]';
+        placeholder.setAttribute('aria-hidden', 'true');
+        const emojiEl = document.createElement('span');
+        emojiEl.className = 'text-4xl sm:text-6xl leading-none';
+        emojiEl.textContent = loc.emoji;
+        placeholder.appendChild(emojiEl);
+        if (loc.tag) {
+          const tagEl = document.createElement('span');
+          tagEl.className = 'text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded-full bg-white/70 border border-[#3E3A39]/40';
+          tagEl.textContent = loc.tag;
+          placeholder.appendChild(tagEl);
+        }
+        imageFrame.appendChild(placeholder);
+        const numEl = document.createElement('span');
+        numEl.className = 'route-card-num';
+        numEl.textContent = idx + 1;
+        numEl.setAttribute('aria-hidden', 'true');
+        imageFrame.appendChild(numEl);
+
+        findPlacePhoto(loc).then(urls => {
+          if (!urls || !urls.length) return;
+          const tryAt = (i) => {
+            if (i >= urls.length || !imageFrame.isConnected) return; // 全部失敗就保留表情符號
+            const img = new Image();
+            img.alt = '';
+            img.className = 'w-full h-full object-cover absolute inset-0';
+            img.referrerPolicy = 'no-referrer';
+            img.decoding = 'async';
+            img.onload = () => {
+              if (!imageFrame.isConnected) return;
+              imageFrame.appendChild(img);
+              if (loc.generic) {
+                const badge = document.createElement('span');
+                badge.className = 'absolute right-0 bottom-0 bg-[#3E3A39]/80 text-white text-[8px] sm:text-[10px] px-1 rounded-tl';
+                badge.textContent = '示意圖';
+                imageFrame.appendChild(badge);
+              }
+            };
+            img.onerror = () => tryAt(i + 1);
+            img.src = urls[i];
+          };
+          tryAt(0);
+        }).catch(() => {});
+
+        const caption = document.createElement('div');
+        caption.className = 'font-extrabold text-center text-[#3E3A39] text-[10px] sm:text-xs truncate px-1 mt-1 sm:mt-2';
+        caption.title = loc.label;
+        caption.textContent = loc.label;
+        card.append(imageFrame, caption);
+        (idx < halfIndex ? leftImages : rightImages).appendChild(card);
+        points.push({ label: loc.label, query: loc.query, mapLabel: getShortMapLabel(loc.label), coord: loc.coord, card, num: idx + 1, tag: loc.tag, tagBg: loc.tagBg });
+      });
+
+      document.getElementById('map-route-count').textContent = `今日景點分布・${points.length} 站`;
+      lastFocusedEl = document.activeElement;
+      document.getElementById('route-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      const closeBtn = document.getElementById('route-close-btn');
+      if (closeBtn) closeBtn.focus({ preventScroll: true });
+      initMap();
+      markersLayer.clearLayers();
+
+      // 所有圖釘一次顯示；不逐點彈跳、不逐站重新定位相機，避免中央地圖亂跳。
+      const usablePoints = points.filter(pt => Array.isArray(pt.coord) && pt.coord.length === 2 && pt.coord.every(Number.isFinite));
+      const bounds = L.latLngBounds();
+      usablePoints.forEach(pt => bounds.extend(pt.coord));
+
+      const drawMapOnce = () => {
+        if (renderToken !== routeRenderToken || document.getElementById('route-modal').classList.contains('hidden')) return;
+        const tileStatus = document.getElementById('map-tile-status');
+        const tileLoadBaseline = mapTileLoadCount;
+        const tileCheck = ++mapTileCheckToken;
+        if (tileStatus) { tileStatus.textContent = '街道底圖載入中…'; tileStatus.hidden = false; }
+        setTimeout(() => {
+          if (tileCheck !== mapTileCheckToken || !tileStatus || !tileStatus.isConnected) return;
+          const tileImages = mapTileLayer && mapTileLayer._container
+            ? Array.from(mapTileLayer._container.querySelectorAll('img.leaflet-tile'))
+            : [];
+          const hasVisibleMapTiles = tileImages.some(img => img.complete && img.naturalWidth > 0);
+          if (!hasVisibleMapTiles && mapTileLoadCount === tileLoadBaseline) {
+            tileStatus.textContent = '街道底圖未載入。請確認網路連線後重新整理頁面。';
+            tileStatus.hidden = false;
+          } else {
+            tileStatus.hidden = true;
+          }
+        }, 7000);
+        leafletMap.stop();
+        leafletMap.invalidateSize({ pan: false, animate: false });
+        markersLayer.clearLayers();
+        if (usablePoints.length === 0) return;
+
+        if (usablePoints.length > 1) {
+          L.polyline(usablePoints.map(pt => pt.coord), {
+            color: '#47a4bf',
+            weight: 3,
+            opacity: 0.9,
+            dashArray: '5 7',
+            lineCap: 'round',
+            interactive: false,
+            className: 'route-path'
+          }).addTo(markersLayer);
+        }
+
+        usablePoints.forEach((pt, idx) => {
+          const icon = L.divIcon({
+            className: 'custom-map-marker',
+            html: `<div class="route-star" aria-hidden="true">${pt.num}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          });
+          const marker = L.marker(pt.coord, { icon, keyboard: true, riseOnHover: false, title: pt.label }).addTo(markersLayer);
+          pt.marker = marker;
+          const west = bounds.getWest();
+          const east = bounds.getEast();
+          const span = Math.max(east - west, 0.0001);
+          const relativeLng = (pt.coord[1] - west) / span;
+          let labelDirection = idx % 2 === 0 ? 'right' : 'left';
+          if (relativeLng < 0.18) labelDirection = 'right';
+          if (relativeLng > 0.82) labelDirection = 'left';
+          marker.bindTooltip(pt.mapLabel, {
+            permanent: true,
+            direction: labelDirection,
+            offset: [labelDirection === 'right' ? 12 : -12, 0],
+            opacity: 1,
+            className: 'map-place-label',
+            interactive: true
+          });
+          pt.dir0 = labelDirection;
+          marker.on('click', () => openMaps(pt.label, pt.query));
+        });
+
+        // 單一相機更新。較大的右側留白讓自動標籤不容易被地圖邊界截斷。
+        if (usablePoints.length === 1) {
+          leafletMap.setView(usablePoints[0].coord, 14, { animate: false });
+        } else {
+          leafletMap.fitBounds(bounds, {
+            paddingTopLeft: [30, 28],
+            paddingBottomRight: [95, 38],
+            maxZoom: 14,
+            animate: false
+          });
+        }
+        currentMarkerPts = usablePoints;
+        scheduleLabelUpdate();
+        setupRouteAnimation(usablePoints);
+      };
+
+      // Modal 從 display:none 切換為可見後才計算尺寸，連續兩個繪製影格可避開錯誤的初始寬高。
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(drawMapOnce, 80)));
+    }
+
+    /* ===== 路線模擬動畫：小狗沿著路線依序走過每個景點（直線模擬，不代表實際走法） ===== */
+    let currentRouteDayNo = 0;
+    let routeAnim = null;
+    let routeAnimLayer = null;
+    let routeAnimSpeed = 1;
+    let routeAnimFollow = true;
+    const prefersReducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* ---- 智慧標籤：放得下才顯示名稱，擠在一起的先只顯示編號，放大後自然長出名稱 ---- */
+    let currentMarkerPts = [];
+    let labelTimer = 0;
+    let labelLast = 0;
+    // 縮放／移動時合併成最多每 120ms 重算一次，避免拖慢地圖
+    function scheduleLabelUpdate() {
+      clearTimeout(labelTimer);
+      const wait = Math.max(0, 120 - (performance.now() - labelLast));
+      labelTimer = setTimeout(() => { labelLast = performance.now(); updateLabelVisibility(); }, wait);
+    }
+    function rectsOverlap(a, b) { return a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t; }
+    const DIR_OFFSET = { right: [12, 0], left: [-12, 0], top: [0, -16], bottom: [0, 16] };
+    const DIR_OPPOSITE = { right: 'left', left: 'right', top: 'bottom', bottom: 'top' };
+    function setTipDirection(tip, dir) {
+      if (tip.options.direction === dir) return;
+      tip.options.direction = dir;
+      tip.options.offset = DIR_OFFSET[dir];
+      tip.update();
+    }
+    // 每個標籤依序嘗試「原本那一側 → 對側 → 上方 → 下方」，找得到不碰到其他標籤／景點的位置就用；
+    // 都放不下時，目前播放的那站仍顯示（圓點在上層，不會被蓋住），其餘先隱藏、只留編號。
+    function updateLabelVisibility() {
+      if (!leafletMap || !currentMarkerPts.length) return;
+      const mapRect = leafletMap.getContainer().getBoundingClientRect();
+      const circles = currentMarkerPts.map(pt => {
+        const p = leafletMap.latLngToContainerPoint(pt.coord);
+        const r = pt.active ? 22 : 14;
+        return { l: p.x - r, t: p.y - r, r: p.x + r, b: p.y + r };
+      });
+      const order = currentMarkerPts.map((_, i) => i).sort((x, y) => (currentMarkerPts[y].active ? 1 : 0) - (currentMarkerPts[x].active ? 1 : 0) || x - y);
+      const taken = [];
+      order.forEach(i => {
+        const pt = currentMarkerPts[i];
+        const tip = pt.marker && pt.marker.getTooltip && pt.marker.getTooltip();
+        const el = tip && tip.getElement && tip.getElement();
+        if (!el) return;
+        const pref = pt.dir0 || 'right';
+        const measure = () => {
+          const r = el.getBoundingClientRect();
+          return { l: r.left - mapRect.left - 2, t: r.top - mapRect.top - 2, r: r.right - mapRect.left + 2, b: r.bottom - mapRect.top + 2 };
+        };
+        const collides = rect => taken.some(o => rectsOverlap(o, rect)) || circles.some((c, ci) => ci !== i && rectsOverlap(c, rect));
+        let placed = null;
+        for (const dir of [pref, DIR_OPPOSITE[pref], 'top', 'bottom']) {
+          setTipDirection(tip, dir);
+          const rect = measure();
+          if (!collides(rect)) { placed = rect; break; }
+        }
+        if (placed) {
+          el.classList.remove('map-place-label-hidden');
+          taken.push(placed);
+        } else {
+          setTipDirection(tip, pref);
+          if (pt.active) { el.classList.remove('map-place-label-hidden'); taken.push(measure()); }
+          else el.classList.add('map-place-label-hidden');
+        }
+      });
+    }
+
+    /* ---- 工具列與「現在走到」資訊條 ---- */
+    const ANIM_BTN = {
+      play:   ['▶', '播放路線'],
+      pause:  ['⏸', '暫停'],
+      resume: ['▶', '繼續播放'],
+      replay: ['↻', '重新播放']
+    };
+    function setAnimButton(state) {
+      const b = document.getElementById('anim-play');
+      const v = ANIM_BTN[state] || ANIM_BTN.play;
+      if (!b) return;
+      b.textContent = v[0];
+      b.setAttribute('aria-label', v[1]);
+      b.title = v[1];
+    }
+    function setRouteControlsVisible(on) {
+      ['route-anim-controls', 'anim-gmaps'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+      });
+      if (!on) {
+        const now = document.getElementById('route-now');
+        if (now) now.style.display = 'none';
+        const bar = document.getElementById('now-bar');
+        if (bar) bar.style.width = '0';
+      }
+    }
+    function updateNowBar(a, idx, finished) {
+      const pt = a.pts[idx];
+      if (!pt) return;
+      document.getElementById('route-now').style.display = '';
+      document.getElementById('now-num').textContent = pt.num;
+      document.getElementById('now-name').textContent = pt.label;
+      const tag = document.getElementById('now-tag');
+      tag.textContent = pt.tag || '';
+      tag.style.display = pt.tag ? '' : 'none';
+      tag.style.backgroundColor = pt.tagBg || '';
+      document.getElementById('now-step').textContent = finished ? `全部走完，共 ${a.pts.length} 站 ✓` : `第 ${idx + 1} / ${a.pts.length} 站`;
+    }
+    function setNowProgress(a, frac) {
+      const bar = document.getElementById('now-bar');
+      if (bar) bar.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%';
+    }
+    let routeToastTimer = 0;
+    function showRouteToast(text) {
+      const el = document.getElementById('route-toast');
+      if (!el) return;
+      el.textContent = text;
+      el.hidden = false;
+      clearTimeout(routeToastTimer);
+      routeToastTimer = setTimeout(() => { el.hidden = true; }, 1500);
+    }
+    function clearAnimHighlights() {
+      document.querySelectorAll('.route-star-active, .route-star-done').forEach(el => el.classList.remove('route-star-active', 'route-star-done'));
+      document.querySelectorAll('.route-card-active').forEach(el => el.classList.remove('route-card-active'));
+    }
+    function stopRouteAnimation() {
+      if (routeAnim && routeAnim.raf) cancelAnimationFrame(routeAnim.raf);
+      if (routeAnim) routeAnim.pts.forEach(pt => setLabelState(pt, ''));
+      routeAnim = null;
+      if (routeAnimLayer) routeAnimLayer.clearLayers();
+      clearAnimHighlights();
+      setAnimButton('play');
+      setRouteControlsVisible(false);
+    }
+    function setupRouteAnimation(pts) {
+      stopRouteAnimation();
+      if (!pts || pts.length < 2) return;
+      setRouteControlsVisible(true);
+      if (!routeAnimLayer) routeAnimLayer = L.layerGroup().addTo(leafletMap);
+      routeAnim = { pts, i: 0, phase: 'idle', p: 0, dur: 1, wait: 0, playing: false, finished: false, raf: 0, last: 0, trail: null, trailBase: [], walker: null };
+    }
+    function lerpLatLng(a, b, t) {
+      const z = leafletMap.getZoom();
+      const p1 = leafletMap.project(a, z);
+      const p2 = leafletMap.project(b, z);
+      return leafletMap.unproject(p1.add(p2.subtract(p1).multiplyBy(t)), z);
+    }
+    function segDuration(a, b) {
+      if (prefersReducedMotion()) return 1;
+      const km = leafletMap.distance(a, b) / 1000;
+      return Math.min(3200, Math.max(900, 700 + km * 350));
+    }
+    function scrollCardIntoView(card) {
+      const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
+      const strip = document.getElementById('cards-strip');
+      const cr = card.getBoundingClientRect();
+      if (strip && getComputedStyle(strip).display !== 'contents') {
+        // 手機：卡片排成一條橫向捲動列
+        const sr = strip.getBoundingClientRect();
+        strip.scrollBy({ left: cr.left - sr.left - (sr.width - cr.width) / 2, behavior });
+        return;
+      }
+      const col = card.parentElement;   // 電腦：左右兩欄直向捲動
+      if (!col) return;
+      const pr = col.getBoundingClientRect();
+      col.scrollBy({ top: cr.top - pr.top - (pr.height - cr.height) / 2, behavior });
+    }
+    function setLabelState(pt, state) {
+      const tip = pt && pt.marker && pt.marker.getTooltip && pt.marker.getTooltip();
+      const el = tip && tip.getElement && tip.getElement();
+      if (!el) return;
+      pt.active = state === 'active';
+      el.classList.toggle('map-place-label-active', state === 'active');
+      el.classList.toggle('map-place-label-done', state === 'done');
+      tip.update();   // 字級改變後重新計算標籤位置，避免壓到星號
+      scheduleLabelUpdate();
+    }
+    function activateStop(a, idx) {
+      const pt = a.pts[idx];
+      if (a.cur != null && a.pts[a.cur]) setLabelState(a.pts[a.cur], 'done');
+      a.cur = idx;
+      setLabelState(pt, 'active');
+      updateNowBar(a, idx, false);
+      setNowProgress(a, a.pts.length > 1 ? idx / (a.pts.length - 1) : 1);
+      document.querySelectorAll('.route-star-active').forEach(el => { el.classList.remove('route-star-active'); el.classList.add('route-star-done'); });
+      document.querySelectorAll('.route-card-active').forEach(el => el.classList.remove('route-card-active'));
+      const el = pt.marker && pt.marker.getElement && pt.marker.getElement();
+      const star = el && el.querySelector('.route-star');
+      if (star) { star.classList.remove('route-star-done'); star.classList.add('route-star-active'); }
+      if (pt.card) { pt.card.classList.add('route-card-active'); scrollCardIntoView(pt.card); }
+    }
+    // 鏡頭跟隨：每走一段，鏡頭平滑飛到「這一段起訖點」的合適範圍（短距離放大、長距離拉遠），
+    // 小狗在畫面內移動；播完後回到整天總覽。
+    // 鏡頭可視範圍要避開蓋在地圖上的介面：上方的圖例／按鈕、右側的標籤與縮放鈕、
+    // 底部的「現在走到」資訊條與播放工具列（量實際高度，手機和電腦都適用）。
+    function getCameraPadding(sideLeft, sideRight) {
+      const mapEl = leafletMap.getContainer();
+      const mh = mapEl.clientHeight || 400;
+      const now = document.getElementById('route-now');
+      const nowH = (now && now.offsetHeight) || 64;
+      const nowBottom = (now && parseFloat(now.style.bottom)) || 60;
+      const bottom = Math.min(nowBottom + nowH + 24, Math.round(mh * 0.5));
+      return { paddingTopLeft: [sideLeft, 64], paddingBottomRight: [sideRight, bottom] };
+    }
+    function frameSegment(a, idx) {
+      if (!routeAnimFollow || idx >= a.pts.length - 1) return;
+      const bounds = L.latLngBounds([a.pts[idx].coord, a.pts[idx + 1].coord]);
+      leafletMap.flyToBounds(bounds, Object.assign(getCameraPadding(50, 120), {
+        maxZoom: 18,
+        animate: !prefersReducedMotion(), duration: Math.max(0.35, 0.9 / routeAnimSpeed)
+      }));
+    }
+    function frameOverview(a) {
+      const bounds = L.latLngBounds(a.pts.map(p => p.coord));
+      leafletMap.flyToBounds(bounds, Object.assign(getCameraPadding(40, 110), {
+        maxZoom: 14,
+        animate: !prefersReducedMotion(), duration: 1
+      }));
+    }
+    function toggleRouteFollow() {
+      routeAnimFollow = !routeAnimFollow;
+      const b = document.getElementById('anim-follow');
+      b.classList.toggle('is-on', routeAnimFollow);
+      b.setAttribute('aria-pressed', routeAnimFollow ? 'true' : 'false');
+      showRouteToast(routeAnimFollow ? '🎥 鏡頭跟隨：開' : '🎥 鏡頭跟隨：關');
+      const a = routeAnim;
+      if (!a || !a.walker) return;           // 還沒開始播放：只記住設定
+      if (routeAnimFollow) frameSegment(a, Math.min(a.i, a.pts.length - 2));
+      else frameOverview(a);
+    }
+    function beginRouteAnimation(a) {
+      routeAnimLayer.clearLayers();
+      clearAnimHighlights();
+      a.pts.forEach(pt => setLabelState(pt, ''));
+      a.cur = null;
+      a.i = 0; a.finished = false; a.phase = 'dwell'; a.wait = 700; a.p = 0;
+      a.trailBase = [a.pts[0].coord];
+      a.trail = L.polyline(a.trailBase, { color: '#2f8fae', weight: 6, opacity: 0.95, lineCap: 'round', interactive: false }).addTo(routeAnimLayer);
+      a.walker = L.marker(a.pts[0].coord, {
+        icon: L.divIcon({ className: 'custom-map-marker', html: '<div class="route-walker" aria-hidden="true">🐶</div>', iconSize: [30, 30], iconAnchor: [15, 15] }),
+        interactive: false, keyboard: false, zIndexOffset: 1000
+      }).addTo(routeAnimLayer);
+      activateStop(a, 0);
+      frameSegment(a, 0);
+      if (!routeAnimFollow) frameOverview(a);   // 不跟隨時也先把全部景點移到資訊條上方的可視範圍
+      a.wait = routeAnimFollow ? 1000 : 700;   // 讓鏡頭有時間先飛到第一段
+    }
+    function animFrame(ts) {
+      const a = routeAnim;
+      if (!a || !a.playing) return;
+      const dt = Math.min(ts - (a.last || ts), 100); // 切換分頁回來時避免一次跳很遠
+      a.last = ts;
+      const step = dt * routeAnimSpeed;
+      if (a.phase === 'dwell') {
+        a.wait -= step;
+        if (a.wait <= 0) {
+          if (a.i >= a.pts.length - 1) {
+            a.playing = false; a.finished = true;
+            setAnimButton('replay');
+            updateNowBar(a, a.pts.length - 1, true);
+            setNowProgress(a, 1);
+            if (routeAnimFollow) frameOverview(a);
+            return;
+          }
+          a.phase = 'move'; a.p = 0;
+          a.dur = segDuration(a.pts[a.i].coord, a.pts[a.i + 1].coord);
+        }
+      } else if (a.phase === 'move') {
+        a.p += step / a.dur;
+        const from = a.pts[a.i].coord;
+        const to = a.pts[a.i + 1].coord;
+        const pos = lerpLatLng(from, to, Math.min(a.p, 1));
+        a.walker.setLatLng(pos);
+        a.trail.setLatLngs(a.trailBase.concat([pos]));
+        setNowProgress(a, (a.i + Math.min(a.p, 1)) / (a.pts.length - 1));
+        if (a.p >= 1) {
+          a.i++;
+          a.trailBase.push(to);
+          a.trail.setLatLngs(a.trailBase);
+          activateStop(a, a.i);
+          frameSegment(a, a.i);
+          a.phase = 'dwell'; a.wait = routeAnimFollow ? 1000 : 700;
+        }
+      }
+      a.raf = requestAnimationFrame(animFrame);
+    }
+    function toggleRouteAnimation() {
+      const a = routeAnim;
+      if (!a) return;
+      if (a.playing) {
+        a.playing = false;
+        cancelAnimationFrame(a.raf);
+        setAnimButton('resume');
+        return;
+      }
+      if (a.finished || a.phase === 'idle') beginRouteAnimation(a);
+      a.playing = true; a.last = 0;
+      setAnimButton('pause');
+      a.raf = requestAnimationFrame(animFrame);
+    }
+    function cycleRouteAnimSpeed() {
+      const speeds = [1, 2, 4];
+      routeAnimSpeed = speeds[(speeds.indexOf(routeAnimSpeed) + 1) % speeds.length];
+      document.getElementById('anim-speed').textContent = routeAnimSpeed + '×';
+    }
+
+    /* ===== 在 Google Maps 開啟整天路線 =====
+       Google Maps 網址最多 起點 + 9 個中途點 + 終點 = 11 站；超過就分段（相鄰兩段共用交接站）。 */
+    const GMAPS_MAX_STOPS = 11;
+    function buildMapsDirUrls(stops) {
+      const urls = [];
+      let start = 0;
+      while (start < stops.length - 1) {
+        const end = Math.min(start + GMAPS_MAX_STOPS - 1, stops.length - 1);
+        const chunk = stops.slice(start, end + 1);
+        const enc = encodeURIComponent;
+        let url = 'https://www.google.com/maps/dir/?api=1&origin=' + enc(chunk[0]) + '&destination=' + enc(chunk[chunk.length - 1]);
+        if (chunk.length > 2) url += '&waypoints=' + enc(chunk.slice(1, -1).join('|'));
+        urls.push({ url, from: start + 1, to: end + 1 });
+        start = end;
+      }
+      return urls;
+    }
+    function openDayRouteInMaps() {
+      const a = routeAnim;
+      if (!a || a.pts.length < 2) return;
+      // 連續相同地點只留一個，避免 Google Maps 出現「起訖點相同」
+      const stops = a.pts.map(pt => pt.query || pt.label).filter((q, i, arr) => i === 0 || q !== arr[i - 1]);
+      if (stops.length < 2) return;
+      const urls = buildMapsDirUrls(stops);
+      const note = '\n※ 多個停靠點時，Google Maps 通常無法切換大眾運輸。';
+      const text = urls.length === 1
+        ? `Day ${currentRouteDayNo} 共 ${stops.length} 站，是否在 Google Maps 開啟整天路線？` + note
+        : `Day ${currentRouteDayNo} 共 ${stops.length} 站，超過 Google Maps 單次 ${GMAPS_MAX_STOPS} 站上限，已分成 ${urls.length} 段（` + urls.map(u => `第${u.from}–${u.to}站`).join('、') + '），請依序開啟。' + note;
+      document.getElementById('gm-confirm-text').innerText = text;
+      const mainLink = document.getElementById('gm-confirm-link');
+      mainLink.href = urls[0].url;
+      mainLink.textContent = urls.length > 1 ? '開啟第 1 段' : '確認開啟';
+      const extra = document.getElementById('gm-extra-links');
+      extra.innerHTML = '';
+      urls.slice(1).forEach((u, k) => {
+        const link = document.createElement('a');
+        link.href = u.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+        link.className = 'comic-btn bg-[#A8D3E6] text-[#3E3A39] py-2 text-lg text-center leading-loose';
+        link.textContent = `開啟第 ${k + 2} 段`;
+        link.addEventListener('click', closeGmModal);
+        extra.appendChild(link);
+      });
+      extra.classList.toggle('hidden', urls.length < 2);
+      document.getElementById('gm-confirm').classList.remove('hidden');
+    }
+
+    function closeRouteModal() {
+      routeRenderToken++;
+      clearRouteTimers();
+      stopRouteAnimation();
+      if (leafletMap) leafletMap.stop();
+      document.getElementById('route-modal').classList.add('hidden');
+      document.body.style.overflow = '';
+      if (lastFocusedEl && lastFocusedEl.focus) lastFocusedEl.focus({ preventScroll: true });
+    }
+
+    /* 4. 電腦版滑鼠拖曳與滾輪滑動 */
+    const dayTabsContainer = document.getElementById('day-tabs');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    dayTabsContainer.addEventListener('mousedown', (e) => {
+      isDown = true;
+      startX = e.pageX - dayTabsContainer.offsetLeft;
+      scrollLeft = dayTabsContainer.scrollLeft;
+    });
+
+    dayTabsContainer.addEventListener('mouseleave', () => { isDown = false; });
+    dayTabsContainer.addEventListener('mouseup', () => { isDown = false; });
+
+    dayTabsContainer.addEventListener('mousemove', (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - dayTabsContainer.offsetLeft;
+      const walk = (x - startX) * 2;
+      dayTabsContainer.scrollLeft = scrollLeft - walk;
+    });
+
+    dayTabsContainer.addEventListener('wheel', (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        dayTabsContainer.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+  
+    /* 4. 視窗關閉：Esc 與點背景 */
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!document.getElementById('gm-confirm').classList.contains('hidden')) closeGmModal();
+      else if (!document.getElementById('route-modal').classList.contains('hidden')) closeRouteModal();
+    });
+    document.getElementById('route-modal').addEventListener('click', (e) => { if (e.target.id === 'route-modal') closeRouteModal(); });
+    document.getElementById('gm-confirm').addEventListener('click', (e) => { if (e.target.id === 'gm-confirm') closeGmModal(); });
+
+    /* 5. 待辦清單：勾選狀態存在瀏覽器（以項目文字為鍵，調整順序也不會錯位） */
+    (function persistChecklist() {
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem('todoState') || '{}'); } catch (_) {}
+      document.querySelectorAll('.todo-checkbox').forEach((box) => {
+        const key = (box.nextElementSibling ? box.nextElementSibling.textContent : '').trim();
+        if (!key) return;
+        box.checked = !!saved[key];
+        box.addEventListener('change', () => {
+          saved[key] = box.checked;
+          try { localStorage.setItem('todoState', JSON.stringify(saved)); } catch (_) {}
+        });
+      });
+    })();
+  
+    /* 6. 手機旋轉或網址列收合時，重新計算地圖尺寸 */
+    (function keepMapSized() {
+      let timer = 0;
+      window.addEventListener('resize', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          const modal = document.getElementById('route-modal');
+          if (leafletMap && modal && !modal.classList.contains('hidden')) leafletMap.invalidateSize({ pan: false, animate: false });
+        }, 150);
+      });
+    })();
+  </script>
+</body>
+</html>
